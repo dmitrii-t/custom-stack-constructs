@@ -7,7 +7,7 @@ import { VpcPlacement } from '../vpc';
 import * as ec2 from '@aws-cdk/aws-ec2';
 import { IVpcSubnet } from '@aws-cdk/aws-ec2';
 
-export interface ElasticsearchConstructProps extends VpcPlacement {
+export interface ElasticsearchVpcPlacement extends VpcPlacement {
 }
 
 export class ElasticsearchConstruct extends CustomConstruct<es.CfnDomain> {
@@ -18,7 +18,7 @@ export class ElasticsearchConstruct extends CustomConstruct<es.CfnDomain> {
     return this.instance
   }
 
-  constructor(scope: cdk.Construct, id: string = 'Elasticsearch', props?: ElasticsearchConstructProps) {
+  constructor(scope: cdk.Construct, id: string = 'Elasticsearch', props?: ElasticsearchVpcPlacement) {
     super(scope, id);
 
     // Vpc
