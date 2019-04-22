@@ -3,11 +3,11 @@ import { CustomConstruct } from '../';
 import * as es from '@aws-cdk/aws-elasticsearch';
 import { CfnDomain } from '@aws-cdk/aws-elasticsearch';
 import * as iam from '@aws-cdk/aws-iam';
-import { VpcOptions } from '../vpc';
+import { VpcPlacement } from '../vpc';
 import * as ec2 from '@aws-cdk/aws-ec2';
 import { IVpcSubnet } from '@aws-cdk/aws-ec2';
 
-export interface ElasticsearchConstructProps extends VpcOptions {
+export interface ElasticsearchConstructProps extends VpcPlacement {
 }
 
 export class ElasticsearchConstruct extends CustomConstruct<es.CfnDomain> {
@@ -18,7 +18,7 @@ export class ElasticsearchConstruct extends CustomConstruct<es.CfnDomain> {
     return this.instance
   }
 
-  constructor(scope: cdk.Construct, id: string, props?: ElasticsearchConstructProps) {
+  constructor(scope: cdk.Construct, id: string = 'Elasticsearch', props?: ElasticsearchConstructProps) {
     super(scope, id);
 
     // Vpc
@@ -27,7 +27,7 @@ export class ElasticsearchConstruct extends CustomConstruct<es.CfnDomain> {
       : undefined;
 
     // Elasticsearch cluster
-    this.instance = new es.CfnDomain(this, id || 'Elasticsearch', {
+    this.instance = new es.CfnDomain(this, id, {
       domainName: formatDomainName(id),
       elasticsearchVersion: '6.4',
       accessPolicies: new iam.PolicyDocument()
@@ -66,15 +66,11 @@ export class ElasticsearchConstruct extends CustomConstruct<es.CfnDomain> {
     // Populates Elasticsearch endpoint for further usage
     this.endpoint = this.instance.domainEndpoint;
 
-    // Outputs public Elasticsearch endpoint if Vpc is not provided
-    if (props && props.vpc) {
-    } else {
-      console.info('Vpc options are not provided, Elasticsearch endpoint will be published to the outputs');
-      const publicEndpoint = new cdk.CfnOutput(this, 'ElastricsearchDomainEndpoint', {
-        description: 'Elasticsearch endpoint',
-        value: this.instance.domainEndpoint
-      });
-    }
+    // Outputs public
+    const domainEndpoint = new cdk.CfnOutput(this, `${id}DomainEndpoint`, {
+      description: `${id} domain endpoint`,
+      value: this.instance.domainEndpoint
+    });
   }
 }
 
@@ -83,11 +79,11 @@ interface EsVpcOptions {
   securityGroup: ec2.SecurityGroup
 }
 
-function formatEsVpcOptions(vpcOptions: VpcOptions): EsVpcOptions {
+function formatEsVpcOptions(vpcOptions: VpcPlacement): EsVpcOptions {
   const vpc = vpcOptions.vpc;
 
   //The only one subnet should be specified
-  const subnet: IVpcSubnet = vpc.subnets(vpcOptions.vpcPlacement)[0];
+  const subnet: IVpcSubnet = vpc.subnets(vpcOptions.vpcPlacementStrategy)[0];
   const securityGroup: ec2.SecurityGroup = vpcOptions.securityGroup;
   return {
     securityGroup, subnet

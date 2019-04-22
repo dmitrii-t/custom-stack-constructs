@@ -3,23 +3,28 @@ import * as kinesis from '@aws-cdk/aws-kinesis';
 import * as cdk from '@aws-cdk/cdk';
 import * as lambda from '@aws-cdk/aws-lambda';
 import * as event_sources from '@aws-cdk/aws-lambda-event-sources';
-import { VpcOptions } from '../vpc';
+import { VpcPlacement } from '../vpc';
 
 // Adds ElasticsearchConstruct stream methods  declaration
 declare module '../elasticsearch' {
   interface ElasticsearchConstruct {
-    connectInputStream(inputStream: kinesis.Stream, esIndex: string, vpcOptions: VpcOptions): ElasticsearchConstruct;
+    withDeliveryStream(fromStream: kinesis.Stream, esIndex: string, vpcPlacement?: VpcPlacement): ElasticsearchConstruct;
   }
 }
 
-export function patchElasticsearchConstructWithInputStream() {
-  ElasticsearchConstruct.prototype.connectInputStream = function (inputStream: kinesis.Stream, index: string,
-                                                                  vpcOptions: VpcOptions): ElasticsearchConstruct {
-
+export function patchElasticsearchConstructWithDeliveryStream() {
+  /**
+   * Adds delivery stream to populate messages to the specified ES index
+   *
+   * @param fromStream
+   * @param index
+   * @param vpcPlacement
+   */
+  ElasticsearchConstruct.prototype.withDeliveryStream = function (fromStream: kinesis.Stream, index: string, vpcPlacement: VpcPlacement): ElasticsearchConstruct {
     const props: StreamConnectorProps = {
       endpoint: this.endpoint,
-      network: vpcOptions,
-      stream: inputStream,
+      network: vpcPlacement,
+      stream: fromStream,
       index,
     };
 
@@ -60,7 +65,7 @@ class StreamConnectorConstruct extends cdk.Construct {
 
 interface StreamConnectorProps {
   endpoint: string
-  network: VpcOptions
+  network: VpcPlacement
   stream: kinesis.Stream
   index: string
 }
