@@ -47,11 +47,11 @@ class StreamConnectorConstruct extends cdk.Construct {
       runtime: lambda.Runtime.NodeJS810,
       handler: 'index.handler',
       code: lambda.Code.asset('./bin/stream-connector'),
-      ...network,
       environment: {
         elasticsearch_endpoint: endpoint,
         elasticsearch_index: index
-      }
+      },
+      ...network,
     });
 
     streamConnector.addEventSource(new event_sources.KinesisEventSource(stream, {

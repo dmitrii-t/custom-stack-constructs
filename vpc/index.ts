@@ -15,6 +15,26 @@ export interface VpcPlacement {
 
 export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
 
+  publicSecurityGroup: ec2.SecurityGroup;
+
+  bastionSecurityGroup: ec2.SecurityGroup;
+
+  privateSecurityGroup: ec2.SecurityGroup;
+
+  isolatedSecurityGroup: ec2.SecurityGroup;
+
+  get publicSecurityGroupId(): string {
+    return this.publicSecurityGroup.securityGroupId
+  }
+
+  get privateSecurityGroupId(): string {
+    return this.privateSecurityGroup.securityGroupId
+  }
+
+  get isolatedSecurityGroupId(): string {
+    return this.isolatedSecurityGroup.securityGroupId
+  }
+
   get publicVpcPlacement(): VpcPlacement {
     return {
       securityGroup: this.publicSecurityGroup,
@@ -43,25 +63,29 @@ export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
     return this.instance.subnets(publicPlacementStrategy);
   }
 
+  get publicSubnetIds(): string[] {
+    return this.instance.subnets(publicPlacementStrategy).map(it => it.subnetId);
+  }
+
   get privateSubnets(): IVpcSubnet[] {
     return this.instance.subnets(privatePlacementStrategy);
+  }
+
+  get privateSubnetIds(): string[] {
+    return this.instance.subnets(privatePlacementStrategy).map(it => it.subnetId);
   }
 
   get isolatedSubnets(): IVpcSubnet[] {
     return this.instance.subnets(isolatedPlacementStrategy);
   }
 
+  get isolatedSubnetIds(): string[] {
+    return this.instance.subnets(isolatedPlacementStrategy).map(it => it.subnetId);
+  }
+
   get vpc(): ec2.VpcNetwork {
     return this.instance;
   }
-
-  publicSecurityGroup: ec2.SecurityGroup;
-
-  bastionSecurityGroup: ec2.SecurityGroup;
-
-  privateSecurityGroup: ec2.SecurityGroup;
-
-  isolatedSecurityGroup: ec2.SecurityGroup;
 
   constructor(scope: cdk.Construct, id: string,) {
     super(scope, id);
@@ -108,7 +132,7 @@ export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
 
     // Private SG
     this.privateSecurityGroup = new ec2.SecurityGroup(this, 'PrivateSG', {
-      description: 'Private security group to allow Lambda or API Gateway to access isolated resources',
+      description: 'Private security group to allow private resources to access to isolated resources',
       vpc: this.instance
     });
     this.privateSecurityGroup.addIngressRule(this.publicSecurityGroup, new ec2.TcpPort(80));

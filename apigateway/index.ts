@@ -1,13 +1,17 @@
 import { CustomConstruct } from '../';
 import * as apigateway from '@aws-cdk/aws-apigateway';
 import {
+  HttpIntegration,
   HttpIntegrationProps,
   IRestApiResource,
   LambdaIntegrationOptions,
-  PassthroughBehavior
+  MethodOptions,
+  PassthroughBehavior,
+  ResourceOptions
 } from '@aws-cdk/aws-apigateway';
 import * as lambda from '@aws-cdk/aws-lambda';
 import * as cdk from '@aws-cdk/cdk';
+import { AuthorizationType } from '@aws-cdk/aws-apigateway';
 
 
 const CORS_DEFAULT_ALLOW_HEADERS = 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token';
@@ -22,20 +26,30 @@ export class RestApiConstruct extends CustomConstruct<apigateway.RestApi> {
 
   private resourceBuilders: { [key: string]: ResourceBuilder } = {};
 
-  constructor(scope: cdk.Construct, id: string) {
+  constructor(scope: cdk.Construct, id: string = 'ApiGateway') {
     super(scope, id);
-    this.instance = new apigateway.RestApi(this, id || 'ApiGateway');
+    this.instance = new apigateway.RestApi(this, id);
   }
 
   resource(path: string, resourceBuilderProvider: (path: string) => ResourceBuilder = this.defaultResourceProvider): ResourceBuilder {
-    if (!(path in this.resourceBuilders)) {
-      this.resourceBuilders[path] = resourceBuilderProvider(path)
+    //
+    let resource;
+    if (path === '/') {
+      return this.root();
     }
-    return this.resourceBuilders[path]
+
+    const segments = path.split('/');
+    resource = segments[0] || segments[1];
+
+    if (!(resource in this.resourceBuilders)) {
+      this.resourceBuilders[resource] = resourceBuilderProvider(resource)
+    }
+
+    return this.resourceBuilders[resource]
   }
 
   root(): ResourceBuilder {
-    return this.resource('root', () => new ResourceBuilder(this, this.instance.root));
+    return this.resourceBuilders['/'] = new ResourceBuilder(this, this.instance.root);
   }
 
   private defaultResourceProvider = (path: string): ResourceBuilder => {
@@ -57,8 +71,9 @@ export class ResourceBuilder {
 
     //
     const localAllowMethods: string[] = ['OPTIONS'].concat(allowMethods);
-    //
-    this.resource.addMethod('OPTIONS', new apigateway.MockIntegration({
+
+
+    const integration = new apigateway.MockIntegration({
       passthroughBehavior: PassthroughBehavior.Never,
       requestTemplates: {
         'application/json': '{"statusCode": 200}'
@@ -74,7 +89,9 @@ export class ResourceBuilder {
           'application/json': ''
         }
       }],
-    }), {
+    });
+
+    const method: MethodOptions = {
       methodResponses: [{
         statusCode: '200',
         responseModels: {
@@ -86,28 +103,56 @@ export class ResourceBuilder {
           'method.response.header.Access-Control-Allow-Origin': false,
         }
       }]
-    });
+    };
 
+    //
+    this.resource.addMethod('OPTIONS', integration, method);
     return this.restApiConstruct;
   }
 
-  addLambdaProxyIntegration(httpMethod: string, handler: lambda.Function): RestApiConstruct {
+  addLambdaProxyIntegration(httpMethod: string, handler: lambda.Function, options?: LambdaIntegrationOptions): RestApiConstruct {
     const integrationProps: LambdaIntegrationOptions = {
       // True is the default value, just to be explicit
-      proxy: true
+      proxy: true,
+      // Overrides
+      ...options,
     };
     this.resource.addMethod(httpMethod, new apigateway.LambdaIntegration(handler, integrationProps));
     return this.restApiConstruct;
   }
 
-  addHttpProxyIntegration(httpMethod: string, url: string): RestApiConstruct {
-    const integrationProps: HttpIntegrationProps = {
-      // True is the default value, just to be explicit
-      proxy: true
+  addHttpProxyIntegration(httpMethod: string, url: string, integrationProps?: HttpIntegrationProps, methodProps?: MethodOptions): RestApiConstruct {
+    //
+    const method: MethodOptions = {
+      authorizationType: AuthorizationType.None,
+      requestParameters: {
+        'method.request.path.proxy': true
+      },
+      methodResponses: [{
+        statusCode: '200'
+      }],
+      // Overrides
+      ...methodProps
     };
-    this.resource.addMethod(httpMethod, new apigateway.HttpIntegration(url, integrationProps));
+
+    const integration: HttpIntegration = new HttpIntegration(url, {
+      // True is the default value, just to be explicit,
+      options: {
+        passthroughBehavior: PassthroughBehavior.WhenNoMatch,
+        requestParameters: {
+          'integration.request.path.proxy': 'method.request.path.proxy',
+        },
+        integrationResponses: [{
+          statusCode: '200'
+        }]
+      },
+      httpMethod: httpMethod,
+      proxy: true,
+      // Overrides
+      ...integrationProps
+    });
+    this.resource.addMethod(httpMethod, integration, method);
     return this.restApiConstruct;
   }
-
 }
 

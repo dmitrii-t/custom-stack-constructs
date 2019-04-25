@@ -1,12 +1,14 @@
 import * as cdk from '@aws-cdk/cdk';
-import * as ec2 from '@aws-cdk/aws-ec2';
 
 export class CustomConstruct<T> extends cdk.Construct {
 
   public instance: T;
 
-  constructor(scope: cdk.Construct, name: string) {
-    super(scope, name);
+  public readonly id: string;
+
+  constructor(scope: cdk.Construct, id: string) {
+    super(scope, id);
+    this.id = id;
     // Constructs the underlying service
   }
 

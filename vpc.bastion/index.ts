@@ -28,11 +28,12 @@ export function patchVpcConstructWithBastion() {
 
     // Bastion Instance
     const bastionInstance = new ec2.CfnInstance(this, id, {
-      ...props,
       networkInterfaces: [{
         networkInterfaceId: networkInterface.ref,
         deviceIndex: '0',
-      } as CfnInstance.NetworkInterfaceProperty]
+      } as CfnInstance.NetworkInterfaceProperty],
+      //Overrides
+      ...props,
     });
 
     // Outputs

@@ -12,14 +12,23 @@ export interface ElasticsearchVpcPlacement extends VpcPlacement {
 
 export class ElasticsearchConstruct extends CustomConstruct<es.CfnDomain> {
 
-  endpoint: string;
+  id: string;
+
+  vpcPlacement?: VpcPlacement;
 
   get elasticsearch(): CfnDomain {
     return this.instance
   }
 
+  get endpoint(): string {
+    // Use non-secure http for internal access
+    return 'http://' + this.instance.domainEndpoint;
+  }
+
   constructor(scope: cdk.Construct, id: string = 'Elasticsearch', props?: ElasticsearchVpcPlacement) {
     super(scope, id);
+
+    this.vpcPlacement = props;
 
     // Vpc
     const vpcOptions: EsVpcOptions | undefined = props && props.vpc
@@ -62,9 +71,6 @@ export class ElasticsearchConstruct extends CustomConstruct<es.CfnDomain> {
       this.instance.node.addDependency(vpcOptions.subnet);
       this.instance.node.addDependency(vpcOptions.securityGroup)
     }
-
-    // Populates Elasticsearch endpoint for further usage
-    this.endpoint = this.instance.domainEndpoint;
 
     // Outputs public
     const domainEndpoint = new cdk.CfnOutput(this, `${id}DomainEndpoint`, {
