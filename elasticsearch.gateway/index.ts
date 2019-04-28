@@ -5,7 +5,7 @@ import { ConnectionType, HttpIntegrationProps, VpcLink } from '@aws-cdk/aws-apig
 // Adds ElasticsearchConstruct stream methods  declaration
 declare module '../elasticsearch' {
   interface ElasticsearchConstruct {
-    withApiGateway(method: string, resourceName: string, integrationPath:string, props?: ElasticsearchApiProps): ElasticsearchConstruct;
+    withPrivatelyIntegratedApiGateway(method: string, resourceName: string, integrationPath:string, props?: ElasticsearchApiProps): ElasticsearchConstruct;
   }
 }
 
@@ -20,17 +20,17 @@ export interface ElasticsearchApiProps {
 export function patchElasticsearchConstructWithApiGateway() {
 
   /**
-   * Adds API Gateway for Elasticsearch domain
    *
    * @param method
    * @param resourceName
+   * @param integrationPath
    * @param props
    */
-  ElasticsearchConstruct.prototype.withApiGateway = function (method: string, resourceName: string, integrationPath:string, props?: ElasticsearchApiProps): ElasticsearchConstruct {
+  ElasticsearchConstruct.prototype.withPrivatelyIntegratedApiGateway = function (method: string, resourceName: string, integrationPath:string, props?: ElasticsearchApiProps): ElasticsearchConstruct {
     const restApiConstruct = new RestApiConstruct(this, this.id + 'ApiGateway');
     restApiConstruct.node.addDependency(this.instance);
 
-    const integrationProps: HttpIntegrationProps = {};
+    let integrationProps: HttpIntegrationProps = {};
 
     //
     if (props && props.vpcLink) {
@@ -41,8 +41,8 @@ export function patchElasticsearchConstructWithApiGateway() {
         }
       };
 
-      // Updates
-      Object.assign(integrationProps, vpcIntegrationProps);
+      // Updates integration props
+      integrationProps = Object.assign(integrationProps, vpcIntegrationProps);
     }
 
     const resource = restApiConstruct.resource(resourceName);
@@ -55,21 +55,6 @@ export function patchElasticsearchConstructWithApiGateway() {
 
     return this;
   };
-
-  // ElasticsearchConstruct.prototype.withApiGateway = function (props?: ElasticsearchApiProps) {
-  //   const restApiConstruct = new RestApiConstruct(this, this.id + 'ApiGateway');
-  //   restApiConstruct.node.addDependency(this.instance);
-  //
-  //   const resource = restApiConstruct.root();
-  //   resource.addHttpGreedyProxy();
-  //
-  //   // Applies provided props
-  //   if (props && props.cors) {
-  //     resource.addCors({allowMethods: ['ANY'], ...props.cors})
-  //   }
-  //
-  //   return this;
-  // }
 }
 
 

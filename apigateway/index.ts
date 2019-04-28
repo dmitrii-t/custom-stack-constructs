@@ -72,7 +72,6 @@ export class ResourceBuilder {
     //
     const localAllowMethods: string[] = ['OPTIONS'].concat(allowMethods);
 
-
     const integration = new apigateway.MockIntegration({
       passthroughBehavior: PassthroughBehavior.Never,
       requestTemplates: {
@@ -125,26 +124,25 @@ export class ResourceBuilder {
     //
     const method: MethodOptions = {
       authorizationType: AuthorizationType.None,
-      requestParameters: {
-        'method.request.path.proxy': true
-      },
-      methodResponses: [{
-        statusCode: '200'
-      }],
+      // requestParameters: {
+      //   'method.request.path.proxy': true
+      // },
+      // methodResponses: [{
+      //   statusCode: '200'
+      // }],
       // Overrides
       ...methodProps
     };
 
     const integration: HttpIntegration = new HttpIntegration(url, {
-      // True is the default value, just to be explicit,
       options: {
         passthroughBehavior: PassthroughBehavior.WhenNoMatch,
-        requestParameters: {
-          'integration.request.path.proxy': 'method.request.path.proxy',
-        },
-        integrationResponses: [{
-          statusCode: '200'
-        }]
+        // requestParameters: {
+        //   'integration.request.path.proxy': 'method.request.path.proxy',
+        // },
+        // integrationResponses: [{
+        //   statusCode: '200'
+        // }]
       },
       httpMethod: httpMethod,
       proxy: true,

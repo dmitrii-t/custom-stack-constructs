@@ -1,11 +1,15 @@
 import { CustomConstruct } from '../index';
 import * as ec2 from '@aws-cdk/aws-ec2';
-import { IVpcSubnet, SubnetType } from '@aws-cdk/aws-ec2';
+import { SubnetType } from '@aws-cdk/aws-ec2';
 import * as cdk from '@aws-cdk/cdk';
 
 export const publicPlacementStrategy: ec2.VpcPlacementStrategy = {subnetsToUse: SubnetType.Public};
 export const privatePlacementStrategy: ec2.VpcPlacementStrategy = {subnetsToUse: SubnetType.Private};
 export const isolatedPlacementStrategy: ec2.VpcPlacementStrategy = {subnetsToUse: SubnetType.Isolated};
+
+export interface VpcProps {
+  maxAZs: number;
+}
 
 export interface VpcPlacement {
   readonly vpc: ec2.VpcNetwork;
@@ -15,13 +19,15 @@ export interface VpcPlacement {
 
 export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
 
-  publicSecurityGroup: ec2.SecurityGroup;
+  readonly availabilityZones: string[];
 
-  bastionSecurityGroup: ec2.SecurityGroup;
+  readonly publicSecurityGroup: ec2.SecurityGroup;
 
-  privateSecurityGroup: ec2.SecurityGroup;
+  readonly bastionSecurityGroup: ec2.SecurityGroup;
 
-  isolatedSecurityGroup: ec2.SecurityGroup;
+  readonly privateSecurityGroup: ec2.SecurityGroup;
+
+  readonly isolatedSecurityGroup: ec2.SecurityGroup;
 
   get publicSecurityGroupId(): string {
     return this.publicSecurityGroup.securityGroupId
@@ -59,7 +65,7 @@ export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
     }
   }
 
-  get publicSubnets(): IVpcSubnet[] {
+  get publicSubnets(): ec2.IVpcSubnet[] {
     return this.instance.subnets(publicPlacementStrategy);
   }
 
@@ -67,7 +73,7 @@ export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
     return this.instance.subnets(publicPlacementStrategy).map(it => it.subnetId);
   }
 
-  get privateSubnets(): IVpcSubnet[] {
+  get privateSubnets(): ec2.IVpcSubnet[] {
     return this.instance.subnets(privatePlacementStrategy);
   }
 
@@ -75,7 +81,7 @@ export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
     return this.instance.subnets(privatePlacementStrategy).map(it => it.subnetId);
   }
 
-  get isolatedSubnets(): IVpcSubnet[] {
+  get isolatedSubnets(): ec2.IVpcSubnet[] {
     return this.instance.subnets(isolatedPlacementStrategy);
   }
 
@@ -87,29 +93,35 @@ export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
     return this.instance;
   }
 
-  constructor(scope: cdk.Construct, id: string,) {
+  constructor(scope: cdk.Construct, id: string, props:VpcProps = {maxAZs: 3}) {
     super(scope, id);
+
+    //
+    const cidrMask = 24;
+
+    this.availabilityZones = new cdk.AvailabilityZoneProvider(this).availabilityZones;
 
     // Network configuration
     this.instance = new ec2.VpcNetwork(this, id, {
       cidr: '10.0.0.0/16',
+      maxAZs: props.maxAZs,
       natGateways: 1,
       natGatewayPlacement: {
         subnetName: 'PublicSubnet'
       },
       subnetConfiguration: [
         {
-          cidrMask: 24,
+          cidrMask,
           name: 'PublicSubnet',
           subnetType: SubnetType.Public,
         },
         {
-          cidrMask: 24,
+          cidrMask,
           name: 'PrivateSubnet',
           subnetType: SubnetType.Private,
         },
         {
-          cidrMask: 24,
+          cidrMask,
           name: 'IsolatedSubnet',
           subnetType: SubnetType.Isolated,
         }
@@ -125,7 +137,7 @@ export class VpcConstruct extends CustomConstruct<ec2.VpcNetwork> {
 
     // Bastion SG
     this.bastionSecurityGroup = new ec2.SecurityGroup(this, 'BastionSG', {
-      description: 'Bastio security group with ssh access only which has acess to both private and isolated SGs',
+      description: 'Bastio security group with ssh access only which has access to both private and isolated SGs',
       vpc: this.instance
     });
     this.bastionSecurityGroup.addIngressRule(new ec2.AnyIPv4(), new ec2.TcpPort(22));
